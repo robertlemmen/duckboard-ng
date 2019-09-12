@@ -4,11 +4,12 @@ WARN?=-Wall -Wextra -Wcast-align -Wcast-qual -Wctor-dtor-privacy \
 	-Wdisabled-optimization -Wformat=2 -Winit-self -Wlogical-op \
 	-Wmissing-include-dirs -Wnoexcept -Woverloaded-virtual \
 	-Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=5 -Wundef \
-	-Wno-unused-parameter -Wreturn-type
-CXXFLAGS?=-g $(WARN) -std=c++17 \
-	-DBOOST_ALL_DYN_LINK 
-CXXINCFLAGS?=-I.
-LDFLAGS?=-pthread -lboost_thread -lboost_log \
+	-Wno-unused-parameter -Wreturn-type -Wno-ctor-dtor-privacy \
+	-Wno-overloaded-virtual -Wno-undef
+CXXFLAGS?=-g $(WARN) -std=c++17 -DBOOST_ALL_DYN_LINK 
+CXXINCFLAGS?=-Iolib/include
+LDFLAGS?=-Lolib/lib -Wl,-rpath=olib/lib \
+	-pthread -lboost_thread -lboost_log \
 	-lboost_log_setup -lboost_program_options \
 	-lboost_system -lboost_filesystem 
 CXX?=g++

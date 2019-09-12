@@ -4,6 +4,9 @@
 #include <boost/asio.hpp>
 
 class server {
+    private:
+        class listener;
+
     public:
         explicit server(boost::asio::io_service &ios);
         virtual ~server();
@@ -13,6 +16,7 @@ class server {
 
     private:
         boost::asio::io_service &ios_;
+        std::shared_ptr<listener> listener_;
         
 };
 

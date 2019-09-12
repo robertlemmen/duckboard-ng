@@ -29,3 +29,20 @@ build boost is (all in src, this directory):
 
 The makefile for this software itself will then pick up boost headers and
 libraries from the olib directory.
+
+Building Duckboard
+------------------
+
+At least this part is easy:
+
+    make
+
+which should leave a "duckboard" executable
+
+Running
+-------
+
+Because of the local boost (see above), you need to tell duckboard where to find
+the dynamic libraries:
+
+    LD_LIBRARY_PATH=olib/lib/ ./duckboard

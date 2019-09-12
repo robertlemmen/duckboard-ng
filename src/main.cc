@@ -39,7 +39,8 @@ int main(int argc, char **argv) {
     boost::asio::signal_set sigs(ios);
 
     // set up and main subcomponents
-    server srv(ios);
+    // XXX port from config or cmdline
+    server srv(ios, 8080); 
   
     sigs.add(SIGINT);
     sigs.add(SIGTERM);
@@ -49,7 +50,7 @@ int main(int argc, char **argv) {
             // XXX does this not need to look at ec and re-wait to deal with spurious wakeups?
             BOOST_LOG_TRIVIAL(debug) << "signal caught, shutting down...";
             // stop main subcomponents and clean up
-            srv.stop();
+            srv.shutdown();
         }
     );
 

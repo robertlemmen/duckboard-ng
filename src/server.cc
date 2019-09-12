@@ -67,6 +67,9 @@ string path_cat(beast::string_view base, beast::string_view path) {
     return result;
 }
 
+// XXX replace this template madness and the "generic lamda" below with
+// something simpler that can be passed into a router
+//
 // This function produces an HTTP response for the given
 // request. The type of the response object depends on the
 // contents of the request, so the interface requires the
@@ -275,12 +278,16 @@ class server::listener : public enable_shared_from_this<listener> {
     private:
         io_service& ios_;
         ip::tcp::acceptor acceptor_;
+        bool shutdown_;
 
     public:
         listener(io_service &ios, ip::tcp::endpoint endpoint) :
                 ios_(ios),
-                acceptor_(make_strand(ios)) {
+                acceptor_(make_strand(ios)),
+                shutdown_(false) {
             beast::error_code ec;
+
+            BOOST_LOG_TRIVIAL(info) << "starting HTTP listener on " << endpoint << "...";
 
             // Open the acceptor
             acceptor_.open(endpoint.protocol(), ec);
@@ -311,9 +318,13 @@ class server::listener : public enable_shared_from_this<listener> {
             }
         }
 
-        // Start accepting incoming connections
-        void run() {
+        void start() {
             do_accept();
+        }
+
+        void shutdown() {
+            shutdown_ = true;
+            acceptor_.close();
         }
 
     private:
@@ -327,6 +338,10 @@ class server::listener : public enable_shared_from_this<listener> {
         }
 
         void on_accept(beast::error_code ec, ip::tcp::socket socket) {
+            if (shutdown_) {
+                return;
+            }
+
             if (ec) {
                 fail(ec, "accept");
             }
@@ -340,20 +355,26 @@ class server::listener : public enable_shared_from_this<listener> {
         }
 };
 
-server::server(io_service &ios) :
-    ios_(ios) {
+server::server(io_service &ios, unsigned short port) :
+    ios_(ios),
+    port_(port) {
 }
 
 server::~server() {
 }
 
 void server::start() {
-    ip::address address = ip::make_address("0.0.0.0");
-    unsigned short port = 8080;
-    listener_ = make_shared<server::listener>(ios_, ip::tcp::endpoint{address, port});
-    listener_->run();
+    listeners_.push_back(make_shared<server::listener>(ios_, ip::tcp::endpoint{ip::make_address("::1"), port_}));
+    listeners_.push_back(make_shared<server::listener>(ios_, ip::tcp::endpoint{ip::make_address("0.0.0.0"), port_}));
+    for (auto l : listeners_) {
+        l->start();
+    }
 }
 
-void server::stop() {
+void server::shutdown() {
+    BOOST_LOG_TRIVIAL(info) << "shutting down all HTTP listeners...";
+    for (auto l : listeners_) {
+        l->shutdown();
+    }
 }
 

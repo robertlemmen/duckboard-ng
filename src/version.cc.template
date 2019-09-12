@@ -1,0 +1,7 @@
+#include "version.h"
+
+using namespace std;
+
+string duckboard_version() {
+    return "%VERSION_STRING%";
+}

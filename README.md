@@ -88,6 +88,8 @@ thereby reduce the number of items looked at during regular queries to an
 upper limit. Note that querying for this property is done in a special way, not
 through the regular query language described in the next section.
 
+XXX how can an item become archived?
+
 ### Querying Items
 
 The core of most duckboard functions is the ability to iterate items that match
@@ -98,6 +100,14 @@ above.
 XXX grammar
 
 ### Boards
+
+XXX
+
+### Ordering Items
+
+XXX
+
+### Relations
 
 XXX
 
@@ -129,8 +139,8 @@ read-after-write guarantees on different member nodes. On the upside the async
 replication allows for quicker responses as no coordination needs to happen over
 slow links. Replication therefore enables geo-redundancy and offline operations.
 
-Design
-------
+Technical Design
+----------------
 
 ### Item Representation
 
@@ -183,3 +193,20 @@ and can make many operations that would be O(N) bound to a certain upper size.
 On top of this, each node can use caching in memory of e.g. a compact
 representation of the current item states to reduce the number of calls that
 need to go to the DB in the first place.
+
+Execution
+---------
+
+### 0.0.1 First Items
+
+* REST-only, no websockets or other notifications
+* PUT/GET/DEL for individual items with properties
+* GET/POST on collection of items
+* memory-only store
+* timestamp generation
+* ?at=<timestamp> on GETs to retrieve state at specific time
+
+### 0.0.2 Filtering
+
+* GETs to support filtering grammar
+* Archiving

@@ -5,7 +5,7 @@
 #include <boost/bind.hpp>
 #include <boost/thread/thread.hpp>
 
-#include "server.h"
+#include "http.h"
 #include "version.h"
 
 using namespace std;
@@ -40,8 +40,17 @@ int main(int argc, char **argv) {
 
     // set up and main subcomponents
     // XXX port from config or cmdline
-    server srv(ios, 8080); 
+    http_server srv(ios, 8080); 
   
+    // XXX debug stuff only for now
+    srv.register_handler("/test", [](http_request &&req, http_server::callback_func cb) {
+        BOOST_LOG_TRIVIAL(debug) << "## handling request " << req.method() << " " << req.target();
+        http_response res;
+        res.status(201);
+        res.body("Woohoo!\n\n");
+        cb(move(res));
+    });
+
     sigs.add(SIGINT);
     sigs.add(SIGTERM);
     sigs.add(SIGQUIT);

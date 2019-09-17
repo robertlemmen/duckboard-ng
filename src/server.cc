@@ -18,65 +18,14 @@ void fail(beast::error_code ec, char const* what) {
     cerr << what << ": " << ec.message() << "\n";
 }
 
-beast::string_view mime_type(beast::string_view path) {
-    using beast::iequals;
-    auto const ext = [&path] {
-        auto const pos = path.rfind(".");
-        if (pos == beast::string_view::npos) {
-            return beast::string_view{};
-        }
-        return path.substr(pos);
-    }();
+// XXX I would like to wrap request/responses into something specific to this
+// application, and not so templatized so that it can be passed around without
+// making everything header-only. but how to do that without having the type of
+// the wrapped thing? a pimpl and then the wrapped type inside the pimpl? ugly!
+// perhaps the easiest thing is to not wrap but transfer data...
 
-    if (iequals(ext, ".htm"))  return "text/html";
-    if (iequals(ext, ".html")) return "text/html";
-    if (iequals(ext, ".php"))  return "text/html";
-    if (iequals(ext, ".css"))  return "text/css";
-    if (iequals(ext, ".txt"))  return "text/plain";
-    if (iequals(ext, ".js"))   return "application/javascript";
-    if (iequals(ext, ".json")) return "application/json";
-    if (iequals(ext, ".xml"))  return "application/xml";
-    if (iequals(ext, ".swf"))  return "application/x-shockwave-flash";
-    if (iequals(ext, ".flv"))  return "video/x-flv";
-    if (iequals(ext, ".png"))  return "image/png";
-    if (iequals(ext, ".jpe"))  return "image/jpeg";
-    if (iequals(ext, ".jpeg")) return "image/jpeg";
-    if (iequals(ext, ".jpg"))  return "image/jpeg";
-    if (iequals(ext, ".gif"))  return "image/gif";
-    if (iequals(ext, ".bmp"))  return "image/bmp";
-    if (iequals(ext, ".ico"))  return "image/vnd.microsoft.icon";
-    if (iequals(ext, ".tiff")) return "image/tiff";
-    if (iequals(ext, ".tif"))  return "image/tiff";
-    if (iequals(ext, ".svg"))  return "image/svg+xml";
-    if (iequals(ext, ".svgz")) return "image/svg+xml";
-    return "application/text";
-}
-
-// Append an HTTP rel-path to a local filesystem path.
-// The returned path is normalized for the platform.
-string path_cat(beast::string_view base, beast::string_view path) {
-    if (base.empty()) {
-        return string(path);
-    }
-    string result(base);
-    char constexpr path_separator = '/';
-    if (result.back() == path_separator) {
-        result.resize(result.size() - 1);
-    }
-    result.append(path.data(), path.size());
-    return result;
-}
-
-// XXX replace this template madness and the "generic lamda" below with
-// something simpler that can be passed into a router
-//
-// This function produces an HTTP response for the given
-// request. The type of the response object depends on the
-// contents of the request, so the interface requires the
-// caller to pass a generic lambda for receiving the response.
-template<class Body, class Allocator, class Send> 
-void handle_request(beast::string_view doc_root,
-    http::request<Body, http::basic_fields<Allocator>> &&req,
+template<class Send> 
+void handle_request(http::request<http::string_body> &&req,
     Send&& send) {
     // Returns a bad request response
     auto const bad_request = [&req](beast::string_view why) {
@@ -109,56 +58,16 @@ void handle_request(beast::string_view doc_root,
     };
 
     // Make sure we can handle the method
-    if (req.method() != http::verb::get && req.method() != http::verb::head) {
+    if (req.method() != http::verb::get) {
         return send(bad_request("Unknown HTTP-method"));
     }
 
-    // Request path must be absolute and not contain "..".
-    if (req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
-        return send(bad_request("Illegal request-target"));
-    }
-
-    // Build the path to the requested file
-    string path = path_cat(doc_root, req.target());
-    if (req.target().back() == '/') {
-        path.append("index.html");
-    }
-
-    // Attempt to open the file
-    beast::error_code ec;
-    http::file_body::value_type body;
-    body.open(path.c_str(), beast::file_mode::scan, ec);
-
-    // Handle the case where the file doesn't exist
-    if (ec == beast::errc::no_such_file_or_directory) {
-        return send(not_found(req.target()));
-    }
-
-    // Handle an unknown error
-    if (ec) {
-        return send(server_error(ec.message()));
-    }
-
-    // Cache the size since we need it after the move
-    auto const size = body.size();
-
-    // Respond to HEAD request
-    if (req.method() == http::verb::head) {
-        http::response<http::empty_body> res{http::status::ok, req.version()};
-        res.set(http::field::content_type, mime_type(path));
-        res.content_length(size);
-        res.keep_alive(req.keep_alive());
-        return send(move(res));
-    }
-
     // Respond to GET request
-    http::response<http::file_body> res{
-        piecewise_construct,
-        make_tuple(move(body)),
-        make_tuple(http::status::ok, req.version())};
-    res.set(http::field::content_type, mime_type(path));
-    res.content_length(size);
+    http::response<http::string_body> res{};
+    res.set(http::field::content_type, "application/json");
     res.keep_alive(req.keep_alive());
+    res.body() = "woohoo my ass";
+    res.content_length(res.body().size());
     return send(move(res));
 }
 
@@ -242,7 +151,7 @@ public:
 
         // Send the response
         // XXX what's the doc_root first arg for?
-        handle_request("", move(req_), lambda_);
+        handle_request(move(req_), lambda_);
     }
 
     void on_write(bool close, beast::error_code ec, size_t bytes_transferred) {
